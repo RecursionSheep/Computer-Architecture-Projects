@@ -1,0 +1,218 @@
+#include <bits/stdc++.h>
+
+using namespace std;
+
+typedef unsigned char BYTE;
+
+const int LRU = 1;
+const int RANDOM = 2;
+const int BINARYTREE = 3;
+
+const int FULL = 0;
+const int DIRECT = 1;
+const int FOUR_WAY = 4;
+const int EIGHT_WAY = 8;
+
+const int WRITEALLOCATE_WRITEBACK = 1;
+const int WRITEALLOCATE_WRITETHROUGH = 2;
+const int WRITEAROUND_WRITEBACK = 3;
+const int WRITEAROUND_WRITETHROUGH = 4;
+
+void editBits(BYTE *bits, int pos, int len, long long value) {
+	for (int i = 0; i < len; i ++) {
+		int id = (pos + i) / 8;
+		int offset = (pos + i) & 7;
+		bits[id] |= (1 << offset);
+		if (value & (1ll << i) == 0)
+			bits[id] ^= (1 << offset);
+	}
+}
+long long readBits(BYTE *bits, int pos, int len) {
+	long long value = 0;
+	for (int i = 0; i < len; i ++) {
+		int id = (pos + i) / 8;
+		int offset = (pos + i) & 7;
+		if (bits[id] & (1 << offset))
+			value |= (1ll << i);
+	}
+	return value;
+}
+
+class Replace {
+	int ways;
+public:
+	Replace(int _ways): ways(_ways) {}
+	virtual void insert(int id) = 0;
+	virtual void access(int id) = 0;
+	virtual int replace() = 0;
+};
+
+class Random: public Replace {
+public:
+	Random(int _ways): Replace(_ways) {}
+	~Random() {}
+	void insert(int id) {}
+	void access(int id) {}
+	int replace() { return rand() % ways; }
+};
+
+class LeastRecentlyUsed: public Replace {
+	BYTE *stack;
+	int bitnum;
+public:
+	LeastRecentlyUsed(int _ways): Replace(_ways) {
+		while (_ways != 1) {
+			_ways >>= 1;
+			bitnum ++;
+		}
+		stack = new BYTE[ways * bitnum / 8 + 1];
+		memset(stack, 0, sizeof(BYTE) * (ways * bitnum / 8 + 1));
+	}
+	~LeastRecentlyUsed() { delete [] stack; }
+	void insert(int id) {
+		for (int i = 0; i < ways - 1; i ++) {
+			int reg = (int)readBits(stack, (i + 1) * bitnum, bitnum);
+			editBits(stack, i * bitnum, bitnum, (long long)reg);
+		}
+		editBits(stack, (ways - 1) * bitnum, bitnum, (long long)id);
+	}
+	void access(int id) {
+		int reg = (int)readBits(stack, (ways - 1) * bitnum, bitnum);
+		for (int i = ways - 1; i >= 0; i --) {
+			if (reg == id) {
+				editBits(stack, (ways - 1) * bitnum, bitnum, (long long)id);
+				break;
+			}
+			int reg2 = reg;
+			reg = (int)readBits(stack, (i - 1) * bitnum, bitnum);
+			editBits(stack, (i - 1) * bitnum, bitnum, (long long)reg2);
+		}
+	}
+	int replace() {
+		int reg = (int)readBits(stack, 0, bitnum);
+		access(reg);
+		return reg;
+	}
+}
+
+class BinaryTree: public Replace {
+	BYTE *tree;
+	int depth;
+public:
+	BinaryTree(int _ways): Replace(_ways) {
+		while (_ways != 1) {
+			_ways >>= 1;
+			depth ++;
+		}
+		tree = new BYTE[ways / 8 + 1];
+		memset(tree, 0, sizeof(BYTE) * (ways / 8 + 1));
+	}
+	~BinaryTree() { delete [] tree; }
+	void insert(int id) {
+		access(id);
+	}
+	void access(int id) {
+		int pos = 1;
+		for (int i = depth - 1; i >= 0; i --) {
+			if ((id >> i) & 1 == 0) {
+				editBits(tree, pos, 1, 1);
+				pos <<= 1;
+			} else {
+				editBits(tree, pos, 1, 0);
+				(pos <<= 1) |= 1;
+			}
+		}
+	}
+	int replace() {
+		int pos = 1;
+		int reg = 0;
+		for (int i = 0; i < depth; i ++) {
+			if (readBits(tree, pos, 1) == 0) {
+				pos <<= 1;
+				reg <<= 1;
+			} else {
+				(pos <<= 1) |= 1;
+				(reg <<= 1) |= 1;
+			}
+		}
+		access(reg);
+		return reg;
+	}
+};
+
+class Group {
+	int blockSize;
+	int ways;
+	int tagLen, metaLen;
+	int replaceStrategy;
+	int writeStrategy;
+	BYTE **metaData;
+	int dataNum;
+	Replace *replace;
+public:
+	Group(int _blockSize, int _ways, int _tagLen, int _replaceStrategy, int _writeStrategy):
+		blockSize(_blockSize), ways(_ways), tagLen(_tagLen), replaceStrategy(_replaceStrategy), writeStrategy(_writeStrategy) {
+		dataNum = 0;
+		metaData = new BYTE*[ways];
+		metaLen = tagLen + 1;
+		if (writeStrategy == WRITEALLOCATE_WRITEBACK || writeStrategy == WRITEAROUND_WRITEBACK)
+			metaLen ++;
+		for (int i = 0; i < ways; i ++) {
+			metaData[i] = new BYTE[metaLen / 8 + 1];
+			memset(metaData[i], 0, sizeof(metaData[i]));
+		}
+		if (replaceStrategy == RANDOM)
+			replace = new Random(ways);
+		else if (replaceStrategy == LRU)
+			replace = new LeastRecentlyUsed(ways);
+		else if (replaceStrategy == BINARYTREE)
+			replace = new BinaryTree(ways);
+	}
+	~Group() {
+		for (int i = 0; i < ways; i ++)
+			delete [] metaData[i];
+		delete [] metaData;
+		delete replace;
+	}
+	bool read_byte(BYTE *tag) {
+	}
+};
+
+class Cache {
+	int cacheSize;
+	int blockSize;
+	int groupNum, offsetLen, indexLen, tagLen;
+	int replaceStrategy;
+	int organization;
+	int ways;
+	int writeStrategy;
+	vector<*Group> groups;
+public:
+	Cache(int _cacheSize, int _blockSize, int _replaceStrategy, int _organization, int _writeStrategy):
+		cacheSize(_cacheSize), blockSize(_blockSize), replaceStrategy(_replaceStrategy), organization(_organization), writeStrategy(_writeStrategy) {
+		groupNum = cacheSize / blockSize;
+		if (organization == FULL) {
+			ways = groupNum;
+			groupNum = 1;
+		} else {
+			ways = organization;
+			groupNum /= ways;
+		}
+		offsetLen = 0;
+		while ((1 << offsetLen) != blockSize)
+			offsetLen++;
+		indexLen = 0;
+		while ((1 << indexLen) != groupNum)
+			indexLen++;
+		tagLen = 64 - indexLen - offsetLen;
+		for (int i = 0; i < groupNum; i++)
+			groups.push_back(new Group(blockSize, ways, tagLen, replaceStrategy, writeStrategy));
+	}
+	~Cache();
+	
+};
+
+int main(int argc, char **argv) {
+	
+	return 0;
+}
