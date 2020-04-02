@@ -40,8 +40,8 @@ LL readBits(BYTE *bits, int pos, int len) {
 }
 
 class Replace {
-	int ways;
 public:
+	int ways;
 	Replace(int _ways): ways(_ways) {}
 	virtual void insert(int id) = 0;
 	virtual void access(int id) = 0;
@@ -94,7 +94,7 @@ public:
 		access(reg);
 		return reg;
 	}
-}
+};
 
 class BinaryTree: public Replace {
 	BYTE *tree;
@@ -148,12 +148,12 @@ class Group {
 	int replaceStrategy;
 	int writeStrategy;
 	BYTE **metaData;
-	int dataNum;
+	int data_num;
 	Replace *replace;
 public:
 	Group(int _blockSize, int _ways, int _tagLen, int _replaceStrategy, int _writeStrategy):
 		blockSize(_blockSize), ways(_ways), tagLen(_tagLen), replaceStrategy(_replaceStrategy), writeStrategy(_writeStrategy) {
-		dataNum = 0;
+		data_num = 0;
 		metaData = new BYTE*[ways];
 		metaLen = tagLen + 1;
 		if (writeStrategy == WRITEALLOCATE_WRITEBACK || writeStrategy == WRITEAROUND_WRITEBACK)
@@ -233,7 +233,7 @@ class Cache {
 	int organization;
 	int ways;
 	int writeStrategy;
-	vector<*Group> groups;
+	vector<Group*> groups;
 public:
 	Cache(int _cacheSize, int _blockSize, int _replaceStrategy, int _organization, int _writeStrategy):
 		cacheSize(_cacheSize), blockSize(_blockSize), replaceStrategy(_replaceStrategy), organization(_organization), writeStrategy(_writeStrategy) {
@@ -259,12 +259,12 @@ public:
 	bool read(LL addr) {
 		LL tag = addr >> (indexLen + offsetLen);
 		LL index = (addr ^ (tag << (indexLen + offsetLen))) >> offsetLen;
-		return vector[index]->read_byte(tag);
+		return groups[(int)index]->read_byte(tag);
 	}
-	void write(LL addr) {
+	bool write(LL addr) {
 		LL tag = addr >> (indexLen + offsetLen);
 		LL index = (addr ^ (tag << (indexLen + offsetLen))) >> offsetLen;
-		return vector[index]->write_byte(tag);
+		return groups[(int)index]->write_byte(tag);
 	}
 };
 
