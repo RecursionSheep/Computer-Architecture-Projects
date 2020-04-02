@@ -5,6 +5,8 @@ using namespace std;
 typedef unsigned char BYTE;
 typedef unsigned long long LL;
 
+FILE *LOG = nullptr;
+
 const int LRU = 1;
 const int RANDOM = 2;
 const int BINARYTREE = 3;
@@ -120,8 +122,10 @@ public:
 	}
 	void access(int id) {
 		int pos = 1;
+		assert(id < ways);
+		//printf("access: %d\n", id);
 		for (int i = depth - 1; i >= 0; i --) {
-			if ((id >> i) & 1 == 0) {
+			if (((id >> i) & 1) == 0) {
 				editBits(tree, pos, 1, 1);
 				pos <<= 1;
 			} else {
@@ -134,6 +138,7 @@ public:
 		int pos = 1;
 		int reg = 0;
 		for (int i = 0; i < depth; i ++) {
+			assert(pos < ways);
 			if (readBits(tree, pos, 1) == 0) {
 				pos <<= 1;
 				reg <<= 1;
@@ -142,7 +147,9 @@ public:
 				(reg <<= 1) |= 1;
 			}
 		}
+		assert(reg < ways);
 		access(reg);
+		//printf("replace: %d\n", reg);
 		return reg;
 	}
 };
@@ -169,12 +176,13 @@ public:
 			memset(metaData[i], 0, sizeof(metaData[i]));
 		}
 		//puts("group");
-		if (replaceStrategy == RANDOM)
+		if (replaceStrategy == RANDOM) {
 			replace = new Random(ways);
-		else if (replaceStrategy == LRU)
+		} else if (replaceStrategy == LRU) {
 			replace = new LeastRecentlyUsed(ways);
-		else if (replaceStrategy == BINARYTREE)
+		} else if (replaceStrategy == BINARYTREE) {
 			replace = new BinaryTree(ways);
+		}
 	}
 	~Group() {
 		for (int i = 0; i < ways; i ++)
@@ -318,7 +326,7 @@ int main(int argc, char **argv) {
 	FILE *LOG = nullptr;
 	if (log_file != nullptr)
 		LOG = fopen(log_file, "w");
-	Cache *cache = new Cache(cacheSize, blockSize, replaceStrategy, organization, replaceStrategy);
+	Cache *cache = new Cache(cacheSize, blockSize, replaceStrategy, organization, writeStrategy);
 	ios::sync_with_stdio(false);
 	string op;
 	LL addr;
@@ -338,6 +346,6 @@ int main(int argc, char **argv) {
 		if (op_cnt % 10000 == 0) printf("%d operations ...\n", op_cnt);
 	}
 	fclose(LOG);
-	printf("Hit rate: %.2lf%%\n", ((double)hit_cnt / op_cnt) * 100.);
+	printf("Hit rate: %.4lf%%\n", ((double)hit_cnt / op_cnt) * 100.);
 	return 0;
 }
