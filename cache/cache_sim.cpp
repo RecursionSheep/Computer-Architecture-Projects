@@ -243,7 +243,7 @@ class Cache {
 	int organization;
 	int ways;
 	int writeStrategy;
-	vector<Group*> groups;
+	Group** groups;
 public:
 	Cache(int _cacheSize, int _blockSize, int _replaceStrategy, int _organization, int _writeStrategy):
 		cacheSize(_cacheSize), blockSize(_blockSize), replaceStrategy(_replaceStrategy), organization(_organization), writeStrategy(_writeStrategy) {
@@ -262,8 +262,9 @@ public:
 		while ((1 << indexLen) != groupNum)
 			indexLen++;
 		tagLen = 64 - indexLen - offsetLen;
+		groups = new Group*[groupNum];
 		for (int i = 0; i < groupNum; i++)
-			groups.push_back(new Group(blockSize, ways, tagLen, replaceStrategy, writeStrategy));
+			groups[i] = new Group(blockSize, ways, tagLen, replaceStrategy, writeStrategy);
 	}
 	~Cache();
 	bool read(LL addr) {
@@ -279,11 +280,13 @@ public:
 };
 
 int main(int argc, char **argv) {
+	srand(time(0));
 	int cacheSize = 128 * 1024;
 	int blockSize = 8;
 	int writeStrategy = WRITEALLOCATE_WRITEBACK;
 	int organization = EIGHT_WAY;
 	int replaceStrategy = LRU;
+	char *log_file = nullptr;
 	for (int i = 1; i < argc; i ++) {
 		if (strcmp(argv[i], "block") == 0)
 			blockSize = atoi(argv[i + 1]);
@@ -309,7 +312,12 @@ int main(int argc, char **argv) {
 			replaceStrategy = RANDOM;
 		if (strcmp(argv[i], "tree") == 0)
 			replaceStrategy = BINARYTREE;
+		if (strcmp(argv[i], "log") == 0)
+			log_file = argv[i + 1];
 	}
+	FILE *LOG = nullptr;
+	if (log_file != nullptr)
+		LOG = fopen(log_file, "w");
 	Cache *cache = new Cache(cacheSize, blockSize, replaceStrategy, organization, replaceStrategy);
 	ios::sync_with_stdio(false);
 	string op;
@@ -320,14 +328,16 @@ int main(int argc, char **argv) {
 	while (cin >> op >> hex >> addr) {
 		//cout << hex << addr << endl;
 		bool hit;
-		if (op == "r")
+		if (op == "r" || op == "l")
 			hit = cache->read(addr);
-		else if (op == "w")
+		else if (op == "w" || op == "s")
 			hit = cache->write(addr);
-		puts(hit ? "Hit" : "Miss");
+		if (LOG != nullptr) fputs(hit ? "Hit\n" : "Miss\n", LOG);
 		hit_cnt += hit ? 1 : 0;
 		op_cnt ++;
+		if (op_cnt % 10000 == 0) printf("%d operations ...\n", op_cnt);
 	}
-	printf("%.2lf%%\n", ((double)hit_cnt / op_cnt) * 100.);
+	fclose(LOG);
+	printf("Hit rate: %.2lf%%\n", ((double)hit_cnt / op_cnt) * 100.);
 	return 0;
 }
