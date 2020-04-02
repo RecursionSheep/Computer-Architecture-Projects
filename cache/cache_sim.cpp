@@ -3,6 +3,7 @@
 using namespace std;
 
 typedef unsigned char BYTE;
+typedef unsigned long long LL;
 
 const int LRU = 1;
 const int RANDOM = 2;
@@ -18,7 +19,7 @@ const int WRITEALLOCATE_WRITETHROUGH = 2;
 const int WRITEAROUND_WRITEBACK = 3;
 const int WRITEAROUND_WRITETHROUGH = 4;
 
-void editBits(BYTE *bits, int pos, int len, long long value) {
+void editBits(BYTE *bits, int pos, int len, LL value) {
 	for (int i = 0; i < len; i ++) {
 		int id = (pos + i) / 8;
 		int offset = (pos + i) & 7;
@@ -27,8 +28,8 @@ void editBits(BYTE *bits, int pos, int len, long long value) {
 			bits[id] ^= (1 << offset);
 	}
 }
-long long readBits(BYTE *bits, int pos, int len) {
-	long long value = 0;
+LL readBits(BYTE *bits, int pos, int len) {
+	LL value = 0;
 	for (int i = 0; i < len; i ++) {
 		int id = (pos + i) / 8;
 		int offset = (pos + i) & 7;
@@ -72,20 +73,20 @@ public:
 	void insert(int id) {
 		for (int i = 0; i < ways - 1; i ++) {
 			int reg = (int)readBits(stack, (i + 1) * bitnum, bitnum);
-			editBits(stack, i * bitnum, bitnum, (long long)reg);
+			editBits(stack, i * bitnum, bitnum, (LL)reg);
 		}
-		editBits(stack, (ways - 1) * bitnum, bitnum, (long long)id);
+		editBits(stack, (ways - 1) * bitnum, bitnum, (LL)id);
 	}
 	void access(int id) {
 		int reg = (int)readBits(stack, (ways - 1) * bitnum, bitnum);
 		for (int i = ways - 1; i >= 0; i --) {
 			if (reg == id) {
-				editBits(stack, (ways - 1) * bitnum, bitnum, (long long)id);
+				editBits(stack, (ways - 1) * bitnum, bitnum, (LL)id);
 				break;
 			}
 			int reg2 = reg;
 			reg = (int)readBits(stack, (i - 1) * bitnum, bitnum);
-			editBits(stack, (i - 1) * bitnum, bitnum, (long long)reg2);
+			editBits(stack, (i - 1) * bitnum, bitnum, (LL)reg2);
 		}
 	}
 	int replace() {
@@ -174,7 +175,53 @@ public:
 		delete [] metaData;
 		delete replace;
 	}
-	bool read_byte(BYTE *tag) {
+	bool read_byte(LL tag) {
+		for (int i = 0; i < data_num; i ++) {
+			LL meta_tag = readBits(metaData[i], 0, tagLen);
+			if (meta_tag == tag) {
+				replace->access(i);
+				return true;
+			}
+		}
+		if (data_num < ways) {
+			replace->insert(data_num);
+			editBits(metaData[data_num], 0, tagLen, tag);
+			if (writeStrategy == WRITEALLOCATE_WRITEBACK || writeStrategy == WRITEAROUND_WRITEBACK)
+				editBits(metaData[data_num], tagLen, 1, 0);
+			data_num ++;
+		} else {
+			int pos = replace->replace();
+			editBits(metaData[pos], 0, tagLen, tag);
+			if (writeStrategy == WRITEALLOCATE_WRITEBACK || writeStrategy == WRITEAROUND_WRITEBACK)
+				editBits(metaData[pos], tagLen, 1, 0);
+		}
+		return false;
+	}
+	bool write_byte(LL tag) {
+		for (int i = 0; i < data_num; i ++) {
+			LL meta_tag = readBits(metaData[i], 0, tagLen);
+			if (meta_tag == tag) {
+				replace->access(i);
+				if (writeStrategy == WRITEALLOCATE_WRITEBACK || writeStrategy == WRITEAROUND_WRITEBACK)
+					editBits(metaData[i], tagLen, 1, 1);
+				return true;
+			}
+		}
+		if (writeStrategy == WRITEAROUND_WRITEBACK || writeStrategy == WRITEAROUND_WRITETHROUGH)
+			return false;
+		if (data_num < ways) {
+			replace->insert(data_num);
+			editBits(metaData[data_num], 0, tagLen, tag);
+			if (writeStrategy == WRITEALLOCATE_WRITEBACK || writeStrategy == WRITEAROUND_WRITEBACK)
+				editBits(metaData[data_num], tagLen, 1, 0);
+			data_num ++;
+		} else {
+			int pos = replace->replace();
+			editBits(metaData[pos], 0, tagLen, tag);
+			if (writeStrategy == WRITEALLOCATE_WRITEBACK || writeStrategy == WRITEAROUND_WRITEBACK)
+				editBits(metaData[pos], tagLen, 1, 0);
+		}
+		return false;
 	}
 };
 
@@ -209,7 +256,16 @@ public:
 			groups.push_back(new Group(blockSize, ways, tagLen, replaceStrategy, writeStrategy));
 	}
 	~Cache();
-	
+	bool read(LL addr) {
+		LL tag = addr >> (indexLen + offsetLen);
+		LL index = (addr ^ (tag << (indexLen + offsetLen))) >> offsetLen;
+		return vector[index]->read_byte(tag);
+	}
+	void write(LL addr) {
+		LL tag = addr >> (indexLen + offsetLen);
+		LL index = (addr ^ (tag << (indexLen + offsetLen))) >> offsetLen;
+		return vector[index]->write_byte(tag);
+	}
 };
 
 int main(int argc, char **argv) {
