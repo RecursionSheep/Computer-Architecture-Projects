@@ -20,13 +20,16 @@ const int WRITEAROUND_WRITEBACK = 3;
 const int WRITEAROUND_WRITETHROUGH = 4;
 
 void editBits(BYTE *bits, int pos, int len, LL value) {
+	//cout << value << endl;
 	for (int i = 0; i < len; i ++) {
 		int id = (pos + i) / 8;
 		int offset = (pos + i) & 7;
 		bits[id] |= (1 << offset);
-		if (value & (1ll << i) == 0)
+		if ((value & (1ll << i)) == 0)
 			bits[id] ^= (1 << offset);
+		//cout << (int)bits[id] << ' ';
 	}
+	//cout << endl;
 }
 LL readBits(BYTE *bits, int pos, int len) {
 	LL value = 0;
@@ -62,10 +65,12 @@ class LeastRecentlyUsed: public Replace {
 	int bitnum;
 public:
 	LeastRecentlyUsed(int _ways): Replace(_ways) {
+		bitnum = 0;
 		while (_ways != 1) {
 			_ways >>= 1;
 			bitnum ++;
 		}
+		//cout << bitnum << endl;
 		stack = new BYTE[ways * bitnum / 8 + 1];
 		memset(stack, 0, sizeof(BYTE) * (ways * bitnum / 8 + 1));
 	}
@@ -101,6 +106,7 @@ class BinaryTree: public Replace {
 	int depth;
 public:
 	BinaryTree(int _ways): Replace(_ways) {
+		depth = 0;
 		while (_ways != 1) {
 			_ways >>= 1;
 			depth ++;
@@ -162,6 +168,7 @@ public:
 			metaData[i] = new BYTE[metaLen / 8 + 1];
 			memset(metaData[i], 0, sizeof(metaData[i]));
 		}
+		//puts("group");
 		if (replaceStrategy == RANDOM)
 			replace = new Random(ways);
 		else if (replaceStrategy == LRU)
@@ -176,13 +183,16 @@ public:
 		delete replace;
 	}
 	bool read_byte(LL tag) {
+		//cout << tag << endl;
 		for (int i = 0; i < data_num; i ++) {
 			LL meta_tag = readBits(metaData[i], 0, tagLen);
+			//cout << meta_tag << endl;
 			if (meta_tag == tag) {
 				replace->access(i);
 				return true;
 			}
 		}
+		//cout << data_num << ' ' << ways << endl;
 		if (data_num < ways) {
 			replace->insert(data_num);
 			editBits(metaData[data_num], 0, tagLen, tag);
@@ -269,6 +279,55 @@ public:
 };
 
 int main(int argc, char **argv) {
-	
+	int cacheSize = 128 * 1024;
+	int blockSize = 8;
+	int writeStrategy = WRITEALLOCATE_WRITEBACK;
+	int organization = EIGHT_WAY;
+	int replaceStrategy = LRU;
+	for (int i = 1; i < argc; i ++) {
+		if (strcmp(argv[i], "block") == 0)
+			blockSize = atoi(argv[i + 1]);
+		if (strcmp(argv[i], "alloback") == 0)
+			writeStrategy = WRITEALLOCATE_WRITEBACK;
+		if (strcmp(argv[i], "allothro") == 0)
+			writeStrategy = WRITEALLOCATE_WRITETHROUGH;
+		if (strcmp(argv[i], "aroback") == 0)
+			writeStrategy = WRITEAROUND_WRITEBACK;
+		if (strcmp(argv[i], "arothro") == 0)
+			writeStrategy = WRITEAROUND_WRITETHROUGH;
+		if (strcmp(argv[i], "full") == 0)
+			organization = FULL;
+		if (strcmp(argv[i], "direct") == 0)
+			organization = DIRECT;
+		if (strcmp(argv[i], "4-way") == 0)
+			organization = FOUR_WAY;
+		if (strcmp(argv[i], "8-way") == 0)
+			organization = EIGHT_WAY;
+		if (strcmp(argv[i], "lru") == 0)
+			replaceStrategy = LRU;
+		if (strcmp(argv[i], "random") == 0)
+			replaceStrategy = RANDOM;
+		if (strcmp(argv[i], "tree") == 0)
+			replaceStrategy = BINARYTREE;
+	}
+	Cache *cache = new Cache(cacheSize, blockSize, replaceStrategy, organization, replaceStrategy);
+	ios::sync_with_stdio(false);
+	string op;
+	LL addr;
+	//puts("Start running ...");
+	int hit_cnt = 0;
+	int op_cnt = 0;
+	while (cin >> op >> hex >> addr) {
+		//cout << hex << addr << endl;
+		bool hit;
+		if (op == "r")
+			hit = cache->read(addr);
+		else if (op == "w")
+			hit = cache->write(addr);
+		puts(hit ? "Hit" : "Miss");
+		hit_cnt += hit ? 1 : 0;
+		op_cnt ++;
+	}
+	printf("%.2lf%%\n", ((double)hit_cnt / op_cnt) * 100.);
 	return 0;
 }
