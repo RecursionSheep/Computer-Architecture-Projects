@@ -5,8 +5,6 @@ using namespace std;
 typedef unsigned char BYTE;
 typedef unsigned long long LL;
 
-FILE *LOG = nullptr;
-
 const int LRU = 1;
 const int RANDOM = 2;
 const int BINARYTREE = 3;
@@ -122,8 +120,6 @@ public:
 	}
 	void access(int id) {
 		int pos = 1;
-		assert(id < ways);
-		//printf("access: %d\n", id);
 		for (int i = depth - 1; i >= 0; i --) {
 			if (((id >> i) & 1) == 0) {
 				editBits(tree, pos, 1, 1);
@@ -138,7 +134,6 @@ public:
 		int pos = 1;
 		int reg = 0;
 		for (int i = 0; i < depth; i ++) {
-			assert(pos < ways);
 			if (readBits(tree, pos, 1) == 0) {
 				pos <<= 1;
 				reg <<= 1;
@@ -147,9 +142,7 @@ public:
 				(reg <<= 1) |= 1;
 			}
 		}
-		assert(reg < ways);
 		access(reg);
-		//printf("replace: %d\n", reg);
 		return reg;
 	}
 };
@@ -296,31 +289,31 @@ int main(int argc, char **argv) {
 	int replaceStrategy = LRU;
 	char *log_file = nullptr;
 	for (int i = 1; i < argc; i ++) {
-		if (strcmp(argv[i], "block") == 0)
+		if (strcmp(argv[i], "-block") == 0)
 			blockSize = atoi(argv[i + 1]);
-		if (strcmp(argv[i], "alloback") == 0)
+		if (strcmp(argv[i], "-alloback") == 0)
 			writeStrategy = WRITEALLOCATE_WRITEBACK;
-		if (strcmp(argv[i], "allothro") == 0)
+		if (strcmp(argv[i], "-allothro") == 0)
 			writeStrategy = WRITEALLOCATE_WRITETHROUGH;
-		if (strcmp(argv[i], "aroback") == 0)
+		if (strcmp(argv[i], "-aroback") == 0)
 			writeStrategy = WRITEAROUND_WRITEBACK;
-		if (strcmp(argv[i], "arothro") == 0)
+		if (strcmp(argv[i], "-arothro") == 0)
 			writeStrategy = WRITEAROUND_WRITETHROUGH;
-		if (strcmp(argv[i], "full") == 0)
+		if (strcmp(argv[i], "-full") == 0)
 			organization = FULL;
-		if (strcmp(argv[i], "direct") == 0)
+		if (strcmp(argv[i], "-direct") == 0)
 			organization = DIRECT;
-		if (strcmp(argv[i], "4-way") == 0)
+		if (strcmp(argv[i], "-4way") == 0)
 			organization = FOUR_WAY;
-		if (strcmp(argv[i], "8-way") == 0)
+		if (strcmp(argv[i], "-8way") == 0)
 			organization = EIGHT_WAY;
-		if (strcmp(argv[i], "lru") == 0)
+		if (strcmp(argv[i], "-lru") == 0)
 			replaceStrategy = LRU;
-		if (strcmp(argv[i], "random") == 0)
+		if (strcmp(argv[i], "-random") == 0)
 			replaceStrategy = RANDOM;
-		if (strcmp(argv[i], "tree") == 0)
+		if (strcmp(argv[i], "-tree") == 0)
 			replaceStrategy = BINARYTREE;
-		if (strcmp(argv[i], "log") == 0)
+		if (strcmp(argv[i], "-log") == 0)
 			log_file = argv[i + 1];
 	}
 	FILE *LOG = nullptr;
@@ -345,7 +338,7 @@ int main(int argc, char **argv) {
 		op_cnt ++;
 		if (op_cnt % 10000 == 0) printf("%d operations ...\n", op_cnt);
 	}
-	fclose(LOG);
+	if (LOG != nullptr) fclose(LOG);
 	printf("Hit rate: %.4lf%%\n", ((double)hit_cnt / op_cnt) * 100.);
 	return 0;
 }
