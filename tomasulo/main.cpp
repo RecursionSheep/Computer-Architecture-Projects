@@ -359,7 +359,7 @@ void tomasulo() {
 		while (idle_load) {
 			int min_op = 10000000, rs_run = -1;
 			for (int i = 0; i < lb_cnt; i ++)
-				if (lb[i].busy && !lb[i].run && mrs[i].id < min_op) {
+				if (lb[i].busy && !lb[i].run && lb[i].id < min_op) {
 					min_op = lb[i].id;
 					rs_run = i;
 				}
