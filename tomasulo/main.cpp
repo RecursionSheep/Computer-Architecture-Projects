@@ -185,6 +185,60 @@ void tomasulo() {
 	int op = 0;
 	int cycle = 1;
 	while (1) {
+		for (int i = 0; i < ars_cnt; i ++)
+			if (ars[i].run) {
+				ars[i].cycle_left --;
+				if (ars[i].cycle_left == 0) {
+					ops[ars[i].id].comp = cycle;
+				} else if (ars[i].cycle_left == -1) {
+					ops[ars[i].id].writeback = cycle;
+					if (regs[ars[i].target].op == ars[i].op && regs[ars[i].target].rs == i) {
+						regs[ars[i].target].val = compute(ars[i].op, ars[i].val1, ars[i].val2);
+						regs[ars[i].target].op = 0;
+						regs[ars[i].target].rs = 0;
+					}
+					update_value(compute(ars[i].op, ars[i].val1, ars[i].val2), ars[i].op, i);
+					ars[i].run = false;
+					ars[i].busy = false;
+				}
+			}
+		for (int i = 0; i < mrs_cnt; i ++)
+			if (mrs[i].run) {
+				mrs[i].cycle_left --;
+				if (mrs[i].cycle_left == 0) {
+					ops[mrs[i].id].comp = cycle;
+				} else if (mrs[i].cycle_left == -1) {
+					ops[mrs[i].id].writeback = cycle;
+					if (regs[mrs[i].target].op == mrs[i].op && regs[mrs[i].target].rs == i) {
+						regs[mrs[i].target].val = compute(mrs[i].op, mrs[i].val1, mrs[i].val2);
+						regs[mrs[i].target].op = 0;
+						regs[mrs[i].target].rs = 0;
+					}
+					update_value(compute(mrs[i].op, mrs[i].val1, mrs[i].val2), mrs[i].op, i);
+					mrs[i].run = false;
+					mrs[i].busy = false;
+				}
+			}
+		for (int i = 0; i < lb_cnt; i ++) {
+			if (lb[i].run) {
+				lb[i].cycle_left --;
+				if (lb[i].cycle_left == 0) {
+					ops[lb[i].id].comp = cycle;
+				} else if (lb[i].cycle_left == -1) {
+					ops[lb[i].id].writeback = cycle;
+					if (regs[lb[i].target].op == lb[i].op && regs[lb[i].target].rs == i) {
+						regs[lb[i].target].val = lb[i].val1;
+						regs[lb[i].target].op = 0;
+						regs[lb[i].target].rs = 0;
+					}
+					update_value(lb[i].val1, lb[i].op, i);
+					lb[i].run = false;
+					lb[i].busy = false;
+				}
+			}
+		}
+		
+		
 		if (op < ops.size()) {
 			if (ops[op].op == LD) {
 				for (int i = 0; i < lb_cnt; i ++)
@@ -258,64 +312,11 @@ void tomasulo() {
 			if (finish) break;
 		}
 		
-		for (int i = 0; i < ars_cnt; i ++)
-			if (ars[i].run) {
-				ars[i].cycle_left --;
-				if (ars[i].cycle_left == 0) {
-					ops[ars[i].id].comp = cycle;
-				} else if (ars[i].cycle_left == -1) {
-					ops[ars[i].id].writeback = cycle;
-					if (regs[ars[i].target].op == ars[i].op && regs[ars[i].target].rs == i) {
-						regs[ars[i].target].val = compute(ars[i].op, ars[i].val1, ars[i].val2);
-						regs[ars[i].target].op = 0;
-						regs[ars[i].target].rs = 0;
-					}
-					update_value(compute(ars[i].op, ars[i].val1, ars[i].val2), ars[i].op, i);
-					ars[i].run = false;
-					ars[i].busy = false;
-				}
-			}
-		for (int i = 0; i < mrs_cnt; i ++)
-			if (mrs[i].run) {
-				mrs[i].cycle_left --;
-				if (mrs[i].cycle_left == 0) {
-					ops[mrs[i].id].comp = cycle;
-				} else if (mrs[i].cycle_left == -1) {
-					ops[mrs[i].id].writeback = cycle;
-					if (regs[mrs[i].target].op == mrs[i].op && regs[mrs[i].target].rs == i) {
-						regs[mrs[i].target].val = compute(mrs[i].op, mrs[i].val1, mrs[i].val2);
-						regs[mrs[i].target].op = 0;
-						regs[mrs[i].target].rs = 0;
-					}
-					update_value(compute(mrs[i].op, mrs[i].val1, mrs[i].val2), mrs[i].op, i);
-					mrs[i].run = false;
-					mrs[i].busy = false;
-				}
-			}
-		for (int i = 0; i < lb_cnt; i ++) {
-			if (lb[i].run) {
-				lb[i].cycle_left --;
-				if (lb[i].cycle_left == 0) {
-					ops[lb[i].id].comp = cycle;
-				} else if (lb[i].cycle_left == -1) {
-					ops[lb[i].id].writeback = cycle;
-					if (regs[lb[i].target].op == lb[i].op && regs[lb[i].target].rs == i) {
-						regs[lb[i].target].val = lb[i].val1;
-						regs[lb[i].target].op = 0;
-						regs[lb[i].target].rs = 0;
-					}
-					update_value(lb[i].val1, lb[i].op, i);
-					lb[i].run = false;
-					lb[i].busy = false;
-				}
-			}
-		}
-		
 		int idle_ars = adder_cnt;
 		for (int i = 0; i < ars_cnt; i ++)
 			if (ars[i].run) idle_ars --;
 		while (idle_ars) {
-			int min_op = 100000, rs_run = -1;
+			int min_op = 10000000, rs_run = -1;
 			for (int i = 0; i < ars_cnt; i ++)
 				if (ars[i].busy && !ars[i].run && (ars[i].op1 == 0 && ars[i].op2 == 0) && ars[i].id < min_op) {
 					min_op = ars[i].id;
@@ -330,14 +331,14 @@ void tomasulo() {
 		for (int i = 0; i < mrs_cnt; i ++)
 			if (mrs[i].run) idle_mrs --;
 		while (idle_mrs) {
-			int min_op = 100000, rs_run = -1;
+			int min_op = 10000000, rs_run = -1;
 			for (int i = 0; i < mrs_cnt; i ++)
 				if (mrs[i].busy && !mrs[i].run && (mrs[i].op1 == 0 && mrs[i].op2 == 0) && mrs[i].id < min_op) {
 					min_op = mrs[i].id;
 					rs_run = i;
 				}
 			if (rs_run == -1) break;
-			idle_ars --;
+			idle_mrs --;
 			mrs[rs_run].run = true;
 			mrs[rs_run].cycle_left = compute_cycle(mrs[rs_run].op, mrs[rs_run].val1, mrs[rs_run].val2);
 		}
@@ -345,7 +346,7 @@ void tomasulo() {
 		for (int i = 0; i < lb_cnt; i ++)
 			if (lb[i].run) idle_load --;
 		while (idle_load) {
-			int min_op = 100000, rs_run = -1;
+			int min_op = 10000000, rs_run = -1;
 			for (int i = 0; i < lb_cnt; i ++)
 				if (lb[i].busy && !lb[i].run && mrs[i].id < min_op) {
 					min_op = lb[i].id;
