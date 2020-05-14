@@ -42,7 +42,7 @@ map<string, Register> regs;
 class ReservationStation {
 public:
 	bool busy, run;
-	int time_in, id;
+	int time_in, time_ok, id;
 	int op;
 	int val1, val2;
 	int op1, op2;
@@ -246,6 +246,7 @@ void tomasulo() {
 						lb[i].busy = true;
 						lb[i].run = false;
 						lb[i].time_in = cycle;
+						lb[i].time_ok = -1;
 						lb[i].id = op;
 						lb[i].op = LD;
 						lb[i].val1 = ops[op].val1;
@@ -263,6 +264,7 @@ void tomasulo() {
 						ars[i].busy = true;
 						ars[i].run = false;
 						ars[i].time_in = cycle;
+						ars[i].time_ok = -1;
 						ars[i].id = op;
 						ars[i].op = ops[op].op;
 						set_reg(&ars[i], ops[op].reg2, ops[op].reg3);
@@ -280,6 +282,7 @@ void tomasulo() {
 						mrs[i].busy = true;
 						mrs[i].run = false;
 						mrs[i].time_in = cycle;
+						mrs[i].time_ok = -1;
 						mrs[i].id = op;
 						mrs[i].op = ops[op].op;
 						set_reg(&mrs[i], ops[op].reg2, ops[op].reg3);
@@ -316,12 +319,16 @@ void tomasulo() {
 		for (int i = 0; i < ars_cnt; i ++)
 			if (ars[i].run) idle_ars --;
 		while (idle_ars) {
-			int min_op = 10000000, rs_run = -1;
-			for (int i = 0; i < ars_cnt; i ++)
-				if (ars[i].busy && !ars[i].run && (ars[i].op1 == 0 && ars[i].op2 == 0) && ars[i].id < min_op) {
+			int min_ok = 10000000, min_op = 10000000, rs_run = -1;
+			for (int i = 0; i < ars_cnt; i ++) {
+				if (ars[i].time_ok == -1 && (ars[i].op1 == 0 && ars[i].op2 == 0))
+					ars[i].time_ok = cycle;
+				if (ars[i].busy && !ars[i].run && ars[i].time_ok != -1 && (ars[i].time_ok < min_ok || (ars[i].time_ok == min_ok && ars[i].id < min_op))) {
 					min_op = ars[i].id;
+					min_ok = ars[i].time_ok;
 					rs_run = i;
 				}
+			}
 			if (rs_run == -1) break;
 			idle_ars --;
 			ars[rs_run].run = true;
@@ -331,12 +338,16 @@ void tomasulo() {
 		for (int i = 0; i < mrs_cnt; i ++)
 			if (mrs[i].run) idle_mrs --;
 		while (idle_mrs) {
-			int min_op = 10000000, rs_run = -1;
-			for (int i = 0; i < mrs_cnt; i ++)
-				if (mrs[i].busy && !mrs[i].run && (mrs[i].op1 == 0 && mrs[i].op2 == 0) && mrs[i].id < min_op) {
+			int min_ok = 10000000, min_op = 10000000, rs_run = -1;
+			for (int i = 0; i < ars_cnt; i ++) {
+				if (mrs[i].time_ok == -1 && (mrs[i].op1 == 0 && mrs[i].op2 == 0))
+					mrs[i].time_ok = cycle;
+				if (mrs[i].busy && !mrs[i].run && mrs[i].time_ok != -1 && (mrs[i].time_ok < min_ok || (mrs[i].time_ok == min_ok && mrs[i].id < min_op))) {
 					min_op = mrs[i].id;
+					min_ok = mrs[i].time_ok;
 					rs_run = i;
 				}
+			}
 			if (rs_run == -1) break;
 			idle_mrs --;
 			mrs[rs_run].run = true;
