@@ -49,7 +49,7 @@ public:
 	int rs1, rs2;
 	int cycle_left;
 	string target;
-} ars[6], mrs[3], lb[3];
+} ars[ars_cnt], mrs[mrs_cnt], lb[lb_cnt];
 
 void set_reg(ReservationStation *rs, string reg1, string reg2) {
 	if (regs[reg1].op == 0) {
@@ -339,7 +339,7 @@ void tomasulo() {
 			if (mrs[i].run) idle_mrs --;
 		while (idle_mrs) {
 			int min_ok = 10000000, min_op = 10000000, rs_run = -1;
-			for (int i = 0; i < ars_cnt; i ++) {
+			for (int i = 0; i < mrs_cnt; i ++) {
 				if (mrs[i].time_ok == -1 && (mrs[i].op1 == 0 && mrs[i].op2 == 0))
 					mrs[i].time_ok = cycle;
 				if (mrs[i].busy && !mrs[i].run && mrs[i].time_ok != -1 && (mrs[i].time_ok < min_ok || (mrs[i].time_ok == min_ok && mrs[i].id < min_op))) {
