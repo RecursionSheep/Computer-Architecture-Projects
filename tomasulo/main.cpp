@@ -179,6 +179,12 @@ void print_status(int cycle) {
 		else
 			printf("waiting\n");
 	}
+	
+	for (auto it = regs.begin(); it != regs.end(); it ++) {
+		cout << (*it).first;
+		printf(" %d %d %d\n", (*it).second.val, (*it).second.op, (*it).second.rs);
+	}
+	
 }
 
 void tomasulo() {
@@ -369,7 +375,7 @@ void tomasulo() {
 			lb[rs_run].cycle_left = 3;
 		}
 		
-		//print_status(cycle);
+		print_status(cycle);
 		
 		cycle ++;
 	}
